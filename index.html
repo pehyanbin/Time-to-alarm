@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alarm Clock</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --accent: #22c55e;
+      --accent2: #38bdf8;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --danger: #ef4444;
+      --border: #1f2937;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background: rgba(17, 24, 39, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 2rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .time-box {
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+
+    .label {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .value {
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    input[type="time"] {
+      flex: 1;
+      min-width: 180px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #858b95;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    button {
+      padding: 14px 18px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: bold;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      opacity: 0.95;
+    }
+
+    .set-btn {
+      background: var(--accent);
+      color: #052e16;
+    }
+
+    .clear-btn {
+      background: var(--danger);
+      color: white;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 14px;
+      border-radius: 12px;
+      background: #0b1220;
+      border: 1px solid var(--border);
+      color: var(--text);
+      min-height: 52px;
+    }
+
+    .countdown {
+      font-size: 1.8rem;
+      font-weight: bold;
+      text-align: center;
+      margin: 16px 0;
+      color: var(--accent2);
+    }
+
+    .ringing {
+      color: #facc15;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.03); opacity: 0.85; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .small {
+      font-size: 0.95rem;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Alarm Clock</h1>
+    <div class="subtitle">Set an alarm and see how long is left</div>
+
+    <div class="time-box">
+      <div class="label">Current Time</div>
+      <div class="value" id="currentTime">--:--:--</div>
+    </div>
+
+    <div class="row">
+      <input type="time" id="alarmTime" />
+      <button class="set-btn" id="setAlarmBtn">Set Alarm</button>
+      <button class="clear-btn" id="clearAlarmBtn">Clear</button>
+    </div>
+
+    <div class="time-box">
+      <div class="label">Time Remaining</div>
+      <div class="countdown" id="countdown">No alarm set</div>
+    </div>
+
+    <div class="status" id="status">Choose a time and click "Set Alarm".</div>
+    <div class="small">If the selected time has already passed today, the alarm is set for tomorrow.</div>
+  </div>
+
+  <script>
+    const currentTimeEl = document.getElementById("currentTime");
+    const alarmTimeInput = document.getElementById("alarmTime");
+    const setAlarmBtn = document.getElementById("setAlarmBtn");
+    const clearAlarmBtn = document.getElementById("clearAlarmBtn");
+    const countdownEl = document.getElementById("countdown");
+    const statusEl = document.getElementById("status");
+
+    let alarmDate = null;
+    let countdownInterval = null;
+    let alarmTriggered = false;
+    let audioContext = null;
+    let alarmInterval = null;
+
+    function formatTime(date) {
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    }
+
+    function updateCurrentTime() {
+      currentTimeEl.textContent = formatTime(new Date());
+    }
+
+    function formatDuration(ms) {
+      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+
+    function getNextAlarmDate(timeString) {
+      const [hours, minutes] = timeString.split(":").map(Number);
+      const now = new Date();
+      const target = new Date();
+
+      target.setHours(hours, minutes, 0, 0);
+
+      if (target <= now) {
+        target.setDate(target.getDate() + 1);
+      }
+
+      return target;
+    }
+
+    function stopAlarmSound() {
+      if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+      }
+    }
+
+    function playBeep() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.4);
+    }
+
+    function startAlarmSound() {
+      stopAlarmSound();
+      playBeep();
+      alarmInterval = setInterval(() => {
+        playBeep();
+      }, 700);
+    }
+
+    function triggerAlarm() {
+      alarmTriggered = true;
+      countdownEl.textContent = "00:00:00";
+      countdownEl.classList.add("ringing");
+      statusEl.innerHTML = `<strong>Alarm ringing!</strong> Click "Clear" to stop it.`;
+      startAlarmSound();
+    }
+
+    function updateCountdown() {
+      if (!alarmDate) {
+        countdownEl.textContent = "No alarm set";
+        countdownEl.classList.remove("ringing");
+        return;
+      }
+
+      const now = new Date();
+      const diff = alarmDate - now;
+
+      if (diff <= 0 && !alarmTriggered) {
+        triggerAlarm();
+        return;
+      }
+
+      if (!alarmTriggered) {
+        countdownEl.textContent = formatDuration(diff);
+      }
+    }
+
+    function setAlarm() {
+      const timeValue = alarmTimeInput.value;
+
+      if (!timeValue) {
+        statusEl.textContent = "Please choose an alarm time first.";
+        return;
+      }
+
+      stopAlarmSound();
+      countdownEl.classList.remove("ringing");
+      alarmTriggered = false;
+
+      alarmDate = getNextAlarmDate(timeValue);
+
+      const displayDate = alarmDate.toLocaleString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        month: "short",
+        day: "numeric"
+      });
+
+      statusEl.innerHTML = `Alarm set for <strong>${displayDate}</strong>.`;
+      updateCountdown();
+
+      if (!countdownInterval) {
+        countdownInterval = setInterval(updateCountdown, 1000);
+      }
+
+      // Resume audio context after user interaction if needed
+      if (audioContext && audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+    }
+
+    function clearAlarm() {
+      alarmDate = null;
+      alarmTriggered = false;
+      stopAlarmSound();
+      countdownEl.textContent = "No alarm set";
+      countdownEl.classList.remove("ringing");
+      statusEl.textContent = 'Alarm cleared. Choose a time and click "Set Alarm".';
+    }
+
+    setAlarmBtn.addEventListener("click", setAlarm);
+    clearAlarmBtn.addEventListener("click", clearAlarm);
+
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+  </script>
+</body>
+</html>
